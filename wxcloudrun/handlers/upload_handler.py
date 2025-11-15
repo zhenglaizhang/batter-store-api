@@ -13,6 +13,7 @@ from wxcloudrun.dao import (
 )
 from wxcloudrun.utils import is_valid_image_type, get_mime_type
 from wxcloudrun.response import make_succ_response, make_err_response
+from wxcloudrun.cos_storage import upload_photo_to_cos, get_file_download_url
 
 logger = logging.getLogger('log')
 
@@ -37,10 +38,6 @@ def upload_photos():
             return make_err_response("用户不存在或未审核通过"), 400
         
         logger.info("找到用户信息: %s - %s", user.store_name, user.contact_name)
-        
-        # 创建用户专用上传目录
-        user_upload_dir = os.path.join('uploads', 'photos', user_id)
-        os.makedirs(user_upload_dir, exist_ok=True)
         
         # 收集上传的文件
         uploaded_files = []
@@ -94,47 +91,55 @@ def upload_photos():
             }
             order = create_battery_upload_order(order_data)
             
-            # 保存照片文件并插入数据库记录
+            # 上传照片到微信云托管对象存储并插入数据库记录
             photos = []
             for original_filename, file_data, upload_index in uploaded_files:
                 # 生成唯一文件名
                 file_extension = os.path.splitext(original_filename)[1][1:] or 'jpg'
                 unique_filename = f"{uuid.uuid4()}.{file_extension}"
-                file_path = os.path.join(user_upload_dir, unique_filename)
                 
-                # 保存文件
-                with open(file_path, 'wb') as f:
-                    f.write(file_data)
+                # 上传到微信云托管对象存储
+                # openid 为空字符串表示管理端上传，小程序端需要传入实际 openid
+                openid = request.form.get('openid', '')
+                cos_key = upload_photo_to_cos(file_data, user_id, unique_filename, openid=openid)
+                if not cos_key:
+                    logger.error("上传文件到 COS 失败: %s", original_filename)
+                    continue
                 
                 # 获取MIME类型
                 mime_type = get_mime_type(file_extension)
                 
-                # 插入照片记录到数据库
+                # 插入照片记录到数据库（file_path 存储 COS Key）
                 photo_data = {
                     'id': str(uuid.uuid4()),
                     'order_id': order_id,
                     'user_id': user_id,
                     'filename': unique_filename,
                     'original_filename': original_filename,
-                    'file_path': file_path,
+                    'file_path': cos_key,  # 存储 COS 文件路径（Key）
                     'file_size': len(file_data),
                     'mime_type': mime_type,
                     'upload_index': upload_index,
                 }
                 photo = create_battery_upload_photo(photo_data)
                 
+                # 获取下载URL（预签名URL，有效期1小时）
+                download_url = get_file_download_url(cos_key, expires=3600)
+                
                 photos.append({
                     'id': photo.id,
                     'filename': photo.filename,
                     'original_filename': photo.original_filename,
-                    'file_path': photo.file_path,
+                    'cos_key': cos_key,  # COS 文件路径（Key）
+                    'file_path': photo.file_path,  # 兼容旧字段，实际存储的是COS Key
+                    'download_url': download_url,  # 预签名下载URL
                     'file_size': photo.file_size,
                     'mime_type': photo.mime_type,
                     'upload_index': photo.upload_index,
                     'created_at': photo.created_at.isoformat() + 'Z' if photo.created_at else None,
                 })
                 
-                logger.info("文件上传成功: %s", unique_filename)
+                logger.info("文件上传成功到 COS: %s, cos_key: %s", unique_filename, cos_key)
             
             logger.info("照片上传完成，共上传 %d 个文件，订单ID: %s", len(photos), order_id)
             
@@ -285,11 +290,19 @@ def get_all_battery_orders():
             
             photo_responses = []
             for photo in photos:
+                # 获取下载URL（如果 file_path 是 COS Key）
+                download_url = None
+                if photo.file_path and not photo.file_path.startswith('/') and photo.file_path.startswith('photos/'):
+                    # 是 COS Key，获取预签名下载URL
+                    download_url = get_file_download_url(photo.file_path, expires=3600)
+                
                 photo_responses.append({
                     'id': photo.id,
                     'filename': photo.filename,
                     'original_filename': photo.original_filename,
+                    'cos_key': photo.file_path if photo.file_path and not photo.file_path.startswith('/') and photo.file_path.startswith('photos/') else None,
                     'file_path': photo.file_path,
+                    'download_url': download_url,
                     'file_size': photo.file_size,
                     'mime_type': photo.mime_type,
                     'upload_index': photo.upload_index,
@@ -334,11 +347,19 @@ def get_battery_order_detail(order_id):
         
         photo_responses = []
         for photo in photos:
+            # 获取下载URL（如果 file_path 是 COS Key）
+            download_url = None
+            if photo.file_path and not photo.file_path.startswith('/') and photo.file_path.startswith('photos/'):
+                # 是 COS Key，获取预签名下载URL
+                download_url = get_file_download_url(photo.file_path, expires=3600)
+            
             photo_responses.append({
                 'id': photo.id,
                 'filename': photo.filename,
                 'original_filename': photo.original_filename,
+                'cos_key': photo.file_path if photo.file_path and not photo.file_path.startswith('/') and photo.file_path.startswith('photos/') else None,
                 'file_path': photo.file_path,
+                'download_url': download_url,
                 'file_size': photo.file_size,
                 'mime_type': photo.mime_type,
                 'upload_index': photo.upload_index,
