@@ -1,7 +1,7 @@
 import re
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 
 # 手机号验证正则表达式
@@ -59,7 +59,7 @@ def get_mime_type(extension: str) -> str:
     return mime_types.get(extension.lower(), 'application/octet-stream')
 
 
-def validate_user_registration_data(data: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+def validate_user_registration_data(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
     验证用户注册数据
     :param data: 注册数据字典
