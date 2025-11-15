@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: battery_recycling_mysql
+    environment:
+      MYSQL_DATABASE: battery_recycling
+      MYSQL_USER: battery_user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: --default-authentication-plugin=mysql_native_password
+
+  app:
+    build: .
+    container_name: battery_recycling_api
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: mysql://battery_user:password@mysql:3306/battery_recycling
+      MYSQL_USERNAME: battery_user
+      MYSQL_PASSWORD: password
+      MYSQL_ADDRESS: mysql:3306
+      MYSQL_DATABASE: battery_recycling
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 3000
+      DEBUG: "True"
+      LOG_LEVEL: info
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+

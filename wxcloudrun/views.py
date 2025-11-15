@@ -1,9 +1,11 @@
 from datetime import datetime
-from flask import render_template, request
-from run import app
+from flask import render_template, request, send_from_directory
+import os
+from wxcloudrun import app
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid
 from wxcloudrun.model import Counters
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
+from wxcloudrun.handlers import user_handler, upload_handler, admin_handler
 
 
 @app.route('/')
@@ -13,6 +15,8 @@ def index():
     """
     return render_template('index.html')
 
+
+# ========== 原有计数器API（保留） ==========
 
 @app.route('/api/count', methods=['POST'])
 def count():
@@ -64,3 +68,86 @@ def get_count():
     """
     counter = Counters.query.filter(Counters.id == 1).first()
     return make_succ_response(0) if counter is None else make_succ_response(counter.count)
+
+
+# ========== 用户相关API ==========
+
+@app.route('/api/user/register', methods=['POST'])
+def register_user():
+    """用户注册"""
+    return user_handler.register_user()
+
+
+@app.route('/api/user/profile', methods=['GET'])
+def get_user_profile():
+    """获取用户个人信息"""
+    return user_handler.get_user_profile()
+
+
+@app.route('/api/user/registrations', methods=['GET'])
+def get_all_user_registrations():
+    """获取所有用户注册记录（管理员功能）"""
+    return user_handler.get_all_user_registrations_handler()
+
+
+@app.route('/api/user/registrations/<registration_id>/status', methods=['PUT'])
+def update_user_registration_status(registration_id):
+    """更新用户注册状态（管理员功能）"""
+    return user_handler.update_user_registration_status_handler(registration_id)
+
+
+# ========== 上传相关API ==========
+
+@app.route('/api/upload/photos', methods=['POST'])
+def upload_photos():
+    """上传照片"""
+    return upload_handler.upload_photos()
+
+
+@app.route('/api/upload/photos', methods=['GET'])
+def get_uploaded_photos():
+    """获取上传的照片列表"""
+    return upload_handler.get_uploaded_photos()
+
+
+@app.route('/api/upload/business-license', methods=['POST'])
+def upload_business_license():
+    """上传营业执照"""
+    return upload_handler.upload_business_license()
+
+
+# ========== 电池订单相关API ==========
+
+@app.route('/api/battery/orders', methods=['GET'])
+def get_all_battery_orders():
+    """获取所有电池上传订单（管理员功能）"""
+    return upload_handler.get_all_battery_orders()
+
+
+@app.route('/api/battery/orders', methods=['POST'])
+def create_battery_order():
+    """创建电池订单"""
+    return upload_handler.create_battery_order()
+
+
+@app.route('/api/battery/orders/<order_id>', methods=['GET'])
+def get_battery_order_detail(order_id):
+    """获取电池上传订单详情（管理员功能）"""
+    return upload_handler.get_battery_order_detail(order_id)
+
+
+# ========== 管理员相关API ==========
+
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    """管理员登录"""
+    return admin_handler.admin_login()
+
+
+# ========== 静态文件服务 ==========
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """提供上传文件的访问"""
+    upload_dir = os.path.join(os.getcwd(), 'uploads')
+    return send_from_directory(upload_dir, filename)

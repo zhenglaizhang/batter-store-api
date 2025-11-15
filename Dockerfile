@@ -32,7 +32,10 @@ RUN pip config set global.index-url http://mirrors.cloud.tencent.com/pypi/simple
 
 # 暴露端口。
 # 此处端口必须与「服务设置」-「流水线」以及「手动上传代码包」部署时填写的端口一致，否则会部署失败。
-EXPOSE 80
+EXPOSE 3000
+
+# 创建上传目录
+RUN mkdir -p /app/uploads/photos /app/uploads/business_licenses
 
 # 执行启动命令
 # 写多行独立的CMD命令是错误写法！只有最后一行CMD命令会被执行，之前的都会被忽略，导致业务报错。
