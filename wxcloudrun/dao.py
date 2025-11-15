@@ -265,3 +265,84 @@ def get_user_role_by_id(user_role_id):
     except OperationalError as e:
         logger.error("get_user_role_by_id errorMsg= {}".format(e))
         return None
+
+
+# ========== 计数器相关（保留原有功能） ==========
+
+def query_counterbyid(counter_id):
+    """
+    根据ID查询计数器
+    :param counter_id: 计数器ID
+    :return: Counters 实体或 None
+    """
+    try:
+        from wxcloudrun.model import Counters
+        return Counters.query.filter(Counters.id == counter_id).first()
+    except OperationalError as e:
+        logger.error("query_counterbyid errorMsg= {}".format(e))
+        return None
+    except Exception as e:
+        logger.error("query_counterbyid errorMsg= {}".format(e))
+        return None
+
+
+def insert_counter(counter):
+    """
+    插入计数器
+    :param counter: Counters 实体
+    :return: 是否成功
+    """
+    try:
+        db.session.add(counter)
+        db.session.commit()
+        return True
+    except OperationalError as e:
+        logger.error("insert_counter errorMsg= {}".format(e))
+        db.session.rollback()
+        return False
+    except Exception as e:
+        logger.error("insert_counter errorMsg= {}".format(e))
+        db.session.rollback()
+        return False
+
+
+def update_counterbyid(counter):
+    """
+    更新计数器
+    :param counter: Counters 实体
+    :return: 是否成功
+    """
+    try:
+        db.session.commit()
+        return True
+    except OperationalError as e:
+        logger.error("update_counterbyid errorMsg= {}".format(e))
+        db.session.rollback()
+        return False
+    except Exception as e:
+        logger.error("update_counterbyid errorMsg= {}".format(e))
+        db.session.rollback()
+        return False
+
+
+def delete_counterbyid(counter_id):
+    """
+    根据ID删除计数器
+    :param counter_id: 计数器ID
+    :return: 是否成功
+    """
+    try:
+        from wxcloudrun.model import Counters
+        counter = Counters.query.filter(Counters.id == counter_id).first()
+        if counter:
+            db.session.delete(counter)
+            db.session.commit()
+        return True
+    except OperationalError as e:
+        logger.error("delete_counterbyid errorMsg= {}".format(e))
+        db.session.rollback()
+        return False
+    except Exception as e:
+        logger.error("delete_counterbyid errorMsg= {}".format(e))
+        db.session.rollback()
+        return False

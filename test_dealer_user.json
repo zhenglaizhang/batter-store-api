@@ -1,0 +1,15 @@
+{
+  "business_type_id": "electric_bike",
+  "business_type": "电动自行车",
+  "user_role_id": "dealer",
+  "user_role": "经销商",
+  "user_info": {
+    "store_name": "绿色能源电池回收店",
+    "contact_name": "张经理",
+    "contact_phone": "13800138000",
+    "address": "北京市朝阳区建国路88号SOHO现代城A座101室",
+    "business_license": null
+  },
+  "submit_time": "2025-11-15T10:00:00Z"
+}
+

@@ -11,5 +11,5 @@ class Counters(db.Model):
     # 设定结构体对应表格的字段
     id = db.Column(db.Integer, primary_key=True)
     count = db.Column(db.Integer, default=1)
-    created_at = db.Column('createdAt', db.TIMESTAMP, nullable=False, default=datetime.now())
-    updated_at = db.Column('updatedAt', db.TIMESTAMP, nullable=False, default=datetime.now())
+    created_at = db.Column('createdAt', db.TIMESTAMP, nullable=False, server_default=db.text('CURRENT_TIMESTAMP'))
+    updated_at = db.Column('updatedAt', db.TIMESTAMP, nullable=False, server_default=db.text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))
