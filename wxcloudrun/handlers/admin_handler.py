@@ -41,6 +41,9 @@ def admin_login():
         }
         
         token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        # 确保 token 是字符串（Python 3 中 jwt.encode 可能返回字节）
+        if isinstance(token, bytes):
+            token = token.decode('utf-8')
         
         response_data = {
             'token': token,

@@ -1,11 +1,12 @@
 from datetime import datetime
-from flask import render_template, request, send_from_directory
+from flask import render_template, request, send_from_directory, redirect, url_for
 import os
 from wxcloudrun import app
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid
 from wxcloudrun.model import Counters
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
 from wxcloudrun.handlers import user_handler, upload_handler, admin_handler
+from wxcloudrun.middleware import require_admin_auth
 
 
 @app.route('/')
@@ -142,6 +143,38 @@ def get_battery_order_detail(order_id):
 def admin_login():
     """管理员登录"""
     return admin_handler.admin_login()
+
+
+# ========== 管理后台页面路由 ==========
+
+@app.route('/admin/login')
+def admin_login_page():
+    """管理员登录页面"""
+    return render_template('admin/login.html')
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    """管理员退出登录（清除 session，前端会清除 localStorage）"""
+    return redirect('/admin/login')
+
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    """管理后台首页"""
+    return render_template('admin/dashboard.html')
+
+
+@app.route('/admin/user-review')
+def admin_user_review():
+    """用户注册审核页面"""
+    return render_template('admin/user-review.html')
+
+
+@app.route('/admin/order-tracking')
+def admin_order_tracking():
+    """电池订单跟踪页面"""
+    return render_template('admin/order-tracking.html')
 
 
 # ========== 静态文件服务 ==========

@@ -1,0 +1,403 @@
+{% extends "admin/base.html" %}
+
+{% block title %}电池订单管理 - 电池回收管理后台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 24px;
+    }
+    .page-title {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
+    .stats-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .stat-card {
+        flex: 1;
+        padding: 16px;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+    .stat-title {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+    .stat-value {
+        font-size: 24px;
+        font-weight: 600;
+    }
+    .table-container {
+        background: #fff;
+        border-radius: 4px;
+    }
+    .status-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 2px;
+        font-size: 12px;
+    }
+    .status-pending { background: #fff7e6; color: #faad14; border: 1px solid #ffd591; }
+    .status-processing { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+    .status-completed { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+    .status-cancelled { background: #fff1f0; color: #f5222d; border: 1px solid #ffccc7; }
+    .modal-content {
+        padding: 24px;
+    }
+    .info-row {
+        display: flex;
+        margin-bottom: 16px;
+    }
+    .info-label {
+        width: 120px;
+        color: #666;
+        font-weight: 500;
+    }
+    .info-value {
+        flex: 1;
+        color: #333;
+    }
+    .photo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+    }
+    .photo-card {
+        border: 1px solid #e8e8e8;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .photo-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        background: #f5f5f5;
+    }
+    .photo-info {
+        padding: 8px;
+        font-size: 12px;
+        color: #666;
+    }
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .btn-primary {
+        background: #1890ff;
+        color: #fff;
+    }
+    .btn-primary:hover {
+        background: #40a9ff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">电池上传订单管理</h1>
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-title">总订单数</div>
+            <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">总照片数</div>
+            <div class="stat-value" id="stat-photos">0</div>
+        </div>
+    </div>
+    <button class="btn btn-primary" onclick="loadOrders()" id="refresh-btn">刷新</button>
+</div>
+
+<div class="table-container">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #fafafa; border-bottom: 1px solid #e8e8e8;">
+                <th style="padding: 12px; text-align: left; font-weight: 600;">订单ID</th>
+                <th style="padding: 12px; text-align: left; font-weight: 600;">店铺名称</th>
+                <th style="padding: 12px; text-align: left; font-weight: 600;">联系人</th>
+                <th style="padding: 12px; text-align: left; font-weight: 600;">联系电话</th>
+                <th style="padding: 12px; text-align: left; font-weight: 600;">照片数量</th>
+                <th style="padding: 12px; text-align: left; font-weight: 600;">状态</th>
+                <th style="padding: 12px; text-align: left; font-weight: 600;">创建时间</th>
+                <th style="padding: 12px; text-align: left; font-weight: 600;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="orders-table-body">
+            <tr>
+                <td colspan="8" style="padding: 40px; text-align: center; color: #999;">加载中...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 订单详情模态框 -->
+<div id="detail-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+    <div style="max-width: 1000px; margin: 40px auto; background: #fff; border-radius: 8px;">
+        <div style="padding: 16px 24px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0; font-size: 18px;">订单详情</h2>
+            <button onclick="closeDetailModal()" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+        </div>
+        <div class="modal-content">
+            <div id="order-detail-info"></div>
+            <div id="order-photos"></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentOrder = null;
+
+// 加载订单列表
+async function loadOrders() {
+    console.log('loadOrders 函数被调用');
+    const tbody = document.getElementById('orders-table-body');
+    const refreshBtn = document.getElementById('refresh-btn');
+    
+    if (!tbody) {
+        console.error('找不到 orders-table-body 元素');
+        return;
+    }
+    
+    tbody.innerHTML = '<tr><td colspan="8" style="padding: 40px; text-align: center; color: #999;">加载中...</td></tr>';
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = '加载中...';
+    }
+    
+    const token = getToken();
+    console.log('Token:', token ? token.substring(0, 20) + '...' : '未找到');
+    const apiUrl = `${API_BASE}/api/battery/orders`;
+    console.log('API URL:', apiUrl);
+    
+    try {
+        const response = await axios.get(apiUrl, {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        });
+        
+        console.log('订单列表响应:', response);
+        console.log('响应数据:', response.data);
+        
+        // 检查响应格式：code === 200 或 success === true
+        if (response.data && (response.data.code === 200 || response.data.success === true) && response.data.data) {
+            const orders = response.data.data || [];
+            console.log('订单数量:', orders.length);
+            renderOrders(orders);
+            updateStats(orders);
+        } else {
+            console.error('响应格式不正确:', response.data);
+            throw new Error(response.data?.message || '加载失败');
+        }
+    } catch (error) {
+        console.error('加载订单失败:', error);
+        console.error('错误详情:', error.response);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" style="padding: 40px; text-align: center; color: #f5222d;">加载失败: ${error.message}</td></tr>`;
+        }
+        alert('加载电池订单失败: ' + (error.response?.data?.message || error.message));
+    } finally {
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '刷新';
+        }
+    }
+}
+
+// 渲染订单列表
+function renderOrders(orders) {
+    const tbody = document.getElementById('orders-table-body');
+    
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="padding: 40px; text-align: center; color: #999;">暂无数据</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = orders.map(order => `
+        <tr style="border-bottom: 1px solid #e8e8e8;">
+            <td style="padding: 12px;"><code style="font-size: 12px;">${order.order_id.substring(0, 8)}...</code></td>
+            <td style="padding: 12px;">${order.store_name}</td>
+            <td style="padding: 12px;">${order.contact_name}</td>
+            <td style="padding: 12px;">${order.contact_phone}</td>
+            <td style="padding: 12px;">📷 ${order.total_photos}</td>
+            <td style="padding: 12px;">${getStatusTag(order.status)}</td>
+            <td style="padding: 12px;">${formatDate(order.created_at)}</td>
+            <td style="padding: 12px;">
+                <button class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;" onclick="showOrderDetail('${order.order_id}')">查看详情</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 更新统计信息
+function updateStats(orders) {
+    const total = orders.length;
+    const totalPhotos = orders.reduce((sum, order) => sum + (order.total_photos || 0), 0);
+    
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-photos').textContent = totalPhotos;
+}
+
+// 获取状态标签
+function getStatusTag(status) {
+    const config = {
+        pending: { class: 'status-pending', text: '待处理' },
+        processing: { class: 'status-processing', text: '处理中' },
+        completed: { class: 'status-completed', text: '已完成' },
+        cancelled: { class: 'status-cancelled', text: '已取消' }
+    };
+    const cfg = config[status] || { class: '', text: status };
+    return `<span class="status-tag ${cfg.class}">${cfg.text}</span>`;
+}
+
+// 格式化日期
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-CN');
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 显示订单详情
+async function showOrderDetail(orderId) {
+    try {
+        const response = await axios.get(`${API_BASE}/api/battery/orders/${orderId}`, {
+            headers: {
+                'Authorization': 'Bearer ' + getToken()
+            }
+        });
+        
+        // 检查响应格式：code === 200 或 success === true
+        if (response.data && (response.data.code === 200 || response.data.success === true) && response.data.data) {
+            const order = response.data.data;
+            currentOrder = order;
+            
+            // 显示订单信息
+            const infoHtml = `
+                <div style="margin-bottom: 24px; padding: 16px; background: #f5f5f5; border-radius: 4px;">
+                    <div class="info-row"><div class="info-label">订单ID:</div><div class="info-value"><code>${order.order_id}</code></div></div>
+                    <div class="info-row"><div class="info-label">用户ID:</div><div class="info-value"><code>${order.user_id}</code></div></div>
+                    <div class="info-row"><div class="info-label">状态:</div><div class="info-value">${getStatusTag(order.status)}</div></div>
+                    <div class="info-row"><div class="info-label">店铺名称:</div><div class="info-value">${order.store_name}</div></div>
+                    <div class="info-row"><div class="info-label">联系人:</div><div class="info-value">${order.contact_name}</div></div>
+                    <div class="info-row"><div class="info-label">联系电话:</div><div class="info-value">${order.contact_phone}</div></div>
+                    <div class="info-row"><div class="info-label">联系地址:</div><div class="info-value">${order.contact_address}</div></div>
+                    <div class="info-row"><div class="info-label">照片数量:</div><div class="info-value">${order.total_photos}</div></div>
+                    <div class="info-row"><div class="info-label">创建时间:</div><div class="info-value">${formatDate(order.created_at)}</div></div>
+                </div>
+            `;
+            document.getElementById('order-detail-info').innerHTML = infoHtml;
+            
+            // 显示照片
+            if (order.photos && order.photos.length > 0) {
+                const photosHtml = `
+                    <h3 style="margin-top: 24px; margin-bottom: 16px;">上传照片</h3>
+                    <div class="photo-grid">
+                        ${order.photos.map(photo => `
+                            <div class="photo-card">
+                                <img 
+                                    src="${API_BASE}/${photo.file_path}" 
+                                    alt="${photo.original_filename}"
+                                    class="photo-image"
+                                    onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 font-family=%22sans-serif%22 font-size=%2214%22 dy=%2210.5%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22%3E图片加载失败%3C/text%3E%3C/svg%3E'"
+                                />
+                                <div class="photo-info">
+                                    <div>${photo.original_filename}</div>
+                                    <div style="color: #999; margin-top: 4px;">${formatFileSize(photo.file_size)}</div>
+                                    <div style="color: #999; margin-top: 4px;">${formatDate(photo.created_at)}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                document.getElementById('order-photos').innerHTML = photosHtml;
+            } else {
+                document.getElementById('order-photos').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #999;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">📷</div>
+                        <div>暂无照片</div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('detail-modal').style.display = 'block';
+        } else {
+            throw new Error(response.data.message || '加载失败');
+        }
+    } catch (error) {
+        alert('加载订单详情失败: ' + (error.response?.data?.message || error.message));
+    }
+}
+
+// 关闭详情模态框
+function closeDetailModal() {
+    document.getElementById('detail-modal').style.display = 'none';
+    currentOrder = null;
+}
+
+// 页面加载时获取数据
+(function() {
+    console.log('订单跟踪页面脚本开始执行');
+    console.log('API_BASE:', typeof API_BASE !== 'undefined' ? API_BASE : '未定义');
+    console.log('getToken:', typeof getToken !== 'undefined' ? '已定义' : '未定义');
+    console.log('axios:', typeof axios !== 'undefined' ? '已定义' : '未定义');
+    console.log('loadOrders:', typeof loadOrders !== 'undefined' ? '已定义' : '未定义');
+    
+    // 等待所有资源加载完成
+    function initLoadOrders() {
+        if (typeof API_BASE === 'undefined') {
+            console.error('API_BASE 未定义，等待...');
+            setTimeout(initLoadOrders, 100);
+            return;
+        }
+        if (typeof getToken === 'undefined') {
+            console.error('getToken 未定义，等待...');
+            setTimeout(initLoadOrders, 100);
+            return;
+        }
+        if (typeof axios === 'undefined') {
+            console.error('axios 未定义，等待...');
+            setTimeout(initLoadOrders, 100);
+            return;
+        }
+        if (typeof loadOrders === 'undefined') {
+            console.error('loadOrders 未定义');
+            return;
+        }
+        
+        console.log('所有依赖已就绪，开始加载订单数据');
+        loadOrders();
+    }
+    
+    // 如果 DOM 已加载，立即执行；否则等待
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initLoadOrders, 300);
+        });
+    } else {
+        setTimeout(initLoadOrders, 300);
+    }
+})();
+</script>
+{% endblock %}
+

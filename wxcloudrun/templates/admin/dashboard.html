@@ -1,0 +1,113 @@
+{% extends "admin/base.html" %}
+
+{% block title %}管理后台首页 - 电池回收管理后台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        margin-bottom: 24px;
+    }
+    .dashboard-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    .dashboard-subtitle {
+        color: #666;
+        font-size: 14px;
+    }
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .action-card {
+        padding: 24px;
+        background: #fff;
+        border: 1px solid #e8e8e8;
+        border-radius: 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .action-card:hover {
+        border-color: #1890ff;
+        box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+    }
+    .action-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+    .action-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    .action-desc {
+        color: #666;
+        font-size: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1 class="dashboard-title">欢迎使用管理后台</h1>
+    <p class="dashboard-subtitle">电池回收平台管理系统</p>
+</div>
+
+<div class="quick-actions">
+    <div class="action-card" onclick="window.location.href='/admin/user-review'">
+        <div class="action-icon">👥</div>
+        <div class="action-title">用户注册管理</div>
+        <div class="action-desc">审核用户注册申请</div>
+    </div>
+    <div class="action-card" onclick="window.location.href='/admin/order-tracking'">
+        <div class="action-icon">📦</div>
+        <div class="action-title">电池订单管理</div>
+        <div class="action-desc">查看和管理电池订单</div>
+    </div>
+</div>
+
+<div style="padding: 24px; background: #f5f5f5; border-radius: 8px;">
+    <h2 style="margin-bottom: 16px; font-size: 18px;">系统信息</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+        <div>
+            <div style="color: #666; font-size: 14px; margin-bottom: 4px;">当前用户</div>
+            <div style="font-size: 16px; font-weight: 600;" id="current-user">加载中...</div>
+        </div>
+        <div>
+            <div style="color: #666; font-size: 14px; margin-bottom: 4px;">登录时间</div>
+            <div style="font-size: 16px; font-weight: 600;" id="login-time">-</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 显示当前用户信息
+const adminInfo = localStorage.getItem('admin_info');
+if (adminInfo) {
+    try {
+        const admin = JSON.parse(adminInfo);
+        document.getElementById('current-user').textContent = admin.username || '管理员';
+    } catch (e) {
+        document.getElementById('current-user').textContent = '管理员';
+    }
+} else {
+    document.getElementById('current-user').textContent = '未登录';
+}
+
+// 显示登录时间
+const now = new Date();
+document.getElementById('login-time').textContent = now.toLocaleString('zh-CN');
+
+// 检查认证
+if (!checkAuth()) {
+    window.location.href = '/admin/login';
+}
+</script>
+{% endblock %}
+

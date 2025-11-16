@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录 - 电池回收管理后台</title>
+    
+    <!-- 使用自定义样式，不依赖 Ant Design CDN -->
+    
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+                'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-container {
+            width: 400px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        .login-title {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .login-title h2 {
+            color: #1890ff;
+            margin-bottom: 8px;
+        }
+        .login-form {
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-title">
+            <h2>电池回收平台</h2>
+            <p style="color: #666; margin: 0;">管理员登录</p>
+        </div>
+        
+        <form id="loginForm" class="login-form">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">用户名</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    required
+                    style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; box-sizing: border-box;"
+                    placeholder="请输入管理员用户名"
+                />
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; color: #333; font-weight: 500;">密码</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required
+                    style="width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; box-sizing: border-box;"
+                    placeholder="请输入密码"
+                />
+            </div>
+            
+            <div id="error-message" style="color: #ff4d4f; margin-bottom: 16px; display: none;"></div>
+            
+            <button 
+                type="submit" 
+                id="submit-btn"
+                style="width: 100%; padding: 10px; background: #1890ff; color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: 500;"
+            >
+                登录
+            </button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.11.0/dist/axios.min.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('error-message');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            // 清除之前的错误信息
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            
+            // 禁用提交按钮
+            submitBtn.disabled = true;
+            submitBtn.textContent = '登录中...';
+            
+            try {
+                const response = await axios.post(`${API_BASE}/api/admin/login`, {
+                    username: username,
+                    password: password
+                });
+                
+                console.log('登录响应:', response.data); // 调试用
+                
+                // 检查响应格式：code === 200 或 success === true
+                if (response.data && (response.data.code === 200 || response.data.success === true) && response.data.data) {
+                    // 保存 token 和管理员信息
+                    const { token, admin } = response.data.data;
+                    localStorage.setItem('admin_token', token);
+                    localStorage.setItem('admin_info', JSON.stringify(admin));
+                    
+                    // 跳转到管理后台首页
+                    window.location.href = '/admin/dashboard';
+                } else {
+                    throw new Error(response.data.message || '登录失败');
+                }
+            } catch (error) {
+                console.error('登录错误:', error); // 调试用
+                errorDiv.style.display = 'block';
+                if (error.response && error.response.data && error.response.data.message) {
+                    errorDiv.textContent = error.response.data.message;
+                } else if (error.message) {
+                    errorDiv.textContent = error.message;
+                } else {
+                    errorDiv.textContent = '登录失败，请检查用户名和密码';
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '登录';
+            }
+        });
+    </script>
+</body>
+</html>
+
