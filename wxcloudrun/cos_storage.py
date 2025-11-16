@@ -34,7 +34,7 @@ def get_temp_credentials() -> Optional[Dict[str, Any]]:
     
     try:
         url = "http://api.weixin.qq.com/_/cos/getauth"
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=10, proxies={'http': None, 'https': None})
         response.raise_for_status()
         data = response.json()
         
@@ -118,7 +118,7 @@ def get_file_metadata(openid: str, cos_path: str) -> Optional[str]:
             "paths": [cos_path]
         }
         
-        response = requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=10, proxies={'http': None, 'https': None})
         response.raise_for_status()
         data = response.json()
         
@@ -322,7 +322,7 @@ def decode_file_metadata(metaid: str) -> Optional[Dict[str, Any]]:
             "metaid": metaid
         }
         
-        response = requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=10, proxies={'http': None, 'https': None})
         response.raise_for_status()
         data = response.json()
         
