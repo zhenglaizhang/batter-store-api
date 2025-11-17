@@ -138,7 +138,8 @@ def get_battery_order_detail(order_id):
 
 
 @app.route('/api/battery/orders/<order_id>', methods=['PUT'])
-@require_admin_auth
+# TODO: 暂时禁用授权检查，以便小程序可以编辑订单。以后需要实现小程序用户认证机制
+# @require_admin_auth
 def update_battery_order(order_id):
     """更新电池订单信息（管理员功能，支持编辑）"""
     return upload_handler.update_battery_order(order_id)
