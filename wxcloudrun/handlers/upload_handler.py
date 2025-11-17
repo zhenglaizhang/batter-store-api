@@ -15,7 +15,7 @@ from wxcloudrun.dao import (
 )
 from wxcloudrun.utils import is_valid_image_type, get_mime_type
 from wxcloudrun.response import make_succ_response, make_err_response
-from wxcloudrun.cos_storage import upload_photo_to_cos, get_file_download_url
+from wxcloudrun.cos_storage import upload_photo_to_cos, get_file_download_url, extract_cos_key_from_file_path
 
 logger = logging.getLogger('log')
 
@@ -420,11 +420,30 @@ def get_battery_order_detail(order_id):
         
         photo_responses = []
         for index, photo in enumerate(photos):
+            # 生成预签名下载URL（有效期1小时）
+            download_url = None
+            if photo.file_path:
+                # 从 file_path 中提取 COS Key（支持 cloud:// 格式和 photos/ 格式）
+                cos_key = extract_cos_key_from_file_path(photo.file_path)
+                
+                if cos_key:
+                    # 成功提取 COS Key，生成预签名URL
+                    download_url = get_file_download_url(cos_key, expires=3600)
+                    logger.info("   照片 #%d 预签名URL: %s (从 %s 提取)", index + 1, download_url, photo.file_path)
+                else:
+                    # 无法提取 COS Key，可能是本地文件，生成相对URL
+                    if 'uploads' in photo.file_path:
+                        rel_path = os.path.relpath(photo.file_path, 'uploads')
+                        download_url = f"/uploads/{rel_path}"
+                    else:
+                        logger.warning("   照片 #%d 无法生成下载URL: %s", index + 1, photo.file_path)
+            
             photo_data = {
                 'id': photo.id,
                 'filename': photo.filename,
                 'original_filename': photo.original_filename,
                 'file_path': photo.file_path,  # 云存储相对路径，如 'photos/user_id/timestamp.jpg'
+                'download_url': download_url,  # 预签名下载URL，前端应使用此字段
                 'file_size': photo.file_size,
                 'mime_type': photo.mime_type,
                 'upload_index': photo.upload_index,

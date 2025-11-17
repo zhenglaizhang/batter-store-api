@@ -197,6 +197,46 @@ def upload_photo_to_cos(file_data: bytes, user_id: str, filename: str, openid: s
         return None
 
 
+def extract_cos_key_from_file_path(file_path: str) -> Optional[str]:
+    """
+    从 file_path 中提取 COS Key
+    支持两种格式：
+    1. cloud://{env}.{storageId}/{path} -> 提取 {path} 部分
+    2. photos/{user_id}/{filename} -> 直接返回
+    :param file_path: 文件路径（可能是 cloud:// 格式或 COS Key）
+    :return: COS Key 或 None
+    """
+    if not file_path:
+        return None
+    
+    # 如果是 cloud:// 格式，提取路径部分
+    if file_path.startswith('cloud://'):
+        # 格式: cloud://{env}.{storageId}/{path}
+        # 提取最后一个 / 之后的部分，或者整个路径去掉 cloud:// 前缀
+        try:
+            # 移除 cloud:// 前缀
+            path_without_prefix = file_path[8:]  # len('cloud://') = 8
+            # 找到第一个 / 之后的部分（即 COS Key）
+            if '/' in path_without_prefix:
+                cos_key = path_without_prefix.split('/', 1)[1]  # 取第一个 / 之后的所有内容
+                logger.info(f"从 cloud:// 格式提取 COS Key: {file_path} -> {cos_key}")
+                return cos_key
+            else:
+                logger.warning(f"cloud:// 格式中未找到路径部分: {file_path}")
+                return None
+        except Exception as e:
+            logger.error(f"提取 COS Key 失败: {file_path}, 错误: {str(e)}")
+            return None
+    
+    # 如果已经是 COS Key 格式（以 photos/ 开头），直接返回
+    if file_path.startswith('photos/'):
+        return file_path
+    
+    # 其他格式，返回 None
+    logger.warning(f"无法识别的文件路径格式: {file_path}")
+    return None
+
+
 def get_file_download_url(cos_key: str, expires: int = 3600) -> Optional[str]:
     """
     获取文件的预签名下载URL
