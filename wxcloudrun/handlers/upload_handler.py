@@ -11,7 +11,7 @@ from wxcloudrun.dao import (
     get_user_registration_by_user_id, create_battery_upload_order,
     get_all_battery_upload_orders, get_battery_upload_order_by_id,
     create_battery_upload_photo, get_photos_by_order_id,
-    update_user_business_license_path
+    update_user_business_license_path, update_battery_upload_order
 )
 from wxcloudrun.utils import is_valid_image_type, get_mime_type
 from wxcloudrun.response import make_succ_response, make_err_response
@@ -472,6 +472,11 @@ def get_battery_order_detail(order_id):
             'status': order.status,
             'total_photos': order.total_photos,
             'photos': photo_responses,
+            'order_type': order.order_type or 'photo_upload',
+            'batteries': order.batteries if order.batteries else [],
+            'total_price': order.total_price,
+            'total_weight': order.total_weight,
+            'pickup_date': order.pickup_date.isoformat() + 'Z' if order.pickup_date else None,
             'created_at': order.created_at.isoformat() + 'Z' if order.created_at else None,
         }
         
@@ -557,6 +562,10 @@ def create_battery_order():
             'status': data.get('status', 'pending'),
             'total_photos': 0,  # 将在处理照片后更新
             'pickup_date': datetime.fromisoformat(data['pickup_date'].replace('Z', '+00:00')) if data.get('pickup_date') and data['pickup_date'] else None,
+            'order_type': data.get('order_type', 'weight_based'),
+            'batteries': data.get('batteries', []),  # 保存电池列表JSON
+            'total_price': str(data.get('total_price', 0)) if data.get('total_price') is not None else None,
+            'total_weight': str(data.get('total_weight', 0)) if data.get('total_weight') is not None else None,
         }
         
         order = create_battery_upload_order(order_data)
@@ -649,11 +658,11 @@ def create_battery_order():
         response_data = {
             'order_id': order_id,
             'user_id': user_id,
-            'order_type': data.get('order_type', 'weight_based'),
+            'order_type': order.order_type,
             'batteries': battery_responses,
-            'total_price': data['total_price'],
-            'total_weight': data.get('total_weight', 0.0),
-            'pickup_date': data.get('pickup_date', ''),
+            'total_price': order.total_price,
+            'total_weight': order.total_weight,
+            'pickup_date': order.pickup_date.isoformat() + 'Z' if order.pickup_date else None,
             'status': order.status,
             'total_photos': photo_count,
             'created_at': order.created_at.isoformat() + 'Z' if order.created_at else None,
@@ -684,4 +693,103 @@ def create_battery_order():
         logger.error("=" * 80)
         logger.error("❌ 创建电池订单失败: %s", str(e), exc_info=True)
         return make_err_response(f"创建电池订单失败: {str(e)}"), 500
+
+
+def update_battery_order(order_id):
+    """
+    更新电池订单信息（支持工作人员编辑）
+    """
+    try:
+        # ========== 请求日志 ==========
+        logger.info("=" * 80)
+        logger.info("📥 [REQUEST] PUT /api/battery/orders/<order_id>")
+        logger.info("📋 请求参数:")
+        data = request.get_json()
+        logger.info("   order_id: %s", order_id)
+        logger.info("   request.method: %s", request.method)
+        logger.info("   request.url: %s", request.url)
+        logger.info("   request.data (JSON):")
+        logger.info("   %s", json.dumps(data, indent=2, ensure_ascii=False, default=str) if data else "None")
+        logger.info("=" * 80)
+        
+        if not data:
+            logger.warn("⚠️ 请求数据为空")
+            return make_err_response("请求数据不能为空"), 400
+        
+        # 检查订单是否存在
+        order = get_battery_upload_order_by_id(order_id)
+        if order is None:
+            logger.warn("⚠️ 未找到指定的电池订单: %s", order_id)
+            return make_err_response("未找到指定的电池订单"), 404
+        
+        # 构建更新数据
+        update_data = {}
+        
+        # 允许更新的字段
+        if 'status' in data:
+            update_data['status'] = data['status']
+        
+        if 'pickup_date' in data and data['pickup_date']:
+            try:
+                update_data['pickup_date'] = datetime.fromisoformat(data['pickup_date'].replace('Z', '+00:00'))
+            except Exception as e:
+                logger.warn("⚠️ 提货日期格式错误: %s", str(e))
+        
+        if 'total_price' in data:
+            update_data['total_price'] = str(data['total_price']) if data['total_price'] is not None else None
+        
+        if 'total_weight' in data:
+            update_data['total_weight'] = str(data['total_weight']) if data['total_weight'] is not None else None
+        
+        if 'batteries' in data:
+            update_data['batteries'] = data['batteries']
+        
+        if 'order_type' in data:
+            update_data['order_type'] = data['order_type']
+        
+        # 执行更新
+        updated_order = update_battery_upload_order(order_id, update_data)
+        
+        if updated_order is None:
+            return make_err_response("更新订单失败"), 500
+        
+        # 构建响应数据
+        response_data = {
+            'order_id': updated_order.id,
+            'user_id': updated_order.user_id,
+            'store_name': updated_order.store_name,
+            'contact_name': updated_order.contact_name,
+            'contact_phone': updated_order.contact_phone,
+            'contact_address': updated_order.contact_address,
+            'status': updated_order.status,
+            'total_photos': updated_order.total_photos,
+            'order_type': updated_order.order_type or 'photo_upload',
+            'batteries': updated_order.batteries if updated_order.batteries else [],
+            'total_price': updated_order.total_price,
+            'total_weight': updated_order.total_weight,
+            'pickup_date': updated_order.pickup_date.isoformat() + 'Z' if updated_order.pickup_date else None,
+            'created_at': updated_order.created_at.isoformat() + 'Z' if updated_order.created_at else None,
+            'updated_at': updated_order.updated_at.isoformat() + 'Z' if updated_order.updated_at else None,
+        }
+        
+        # ========== 响应日志 ==========
+        logger.info("=" * 80)
+        logger.info("📤 [RESPONSE] PUT /api/battery/orders/<order_id>")
+        logger.info("   状态码: 200")
+        logger.info("   响应数据:")
+        logger.info("   order_id: %s", response_data['order_id'])
+        logger.info("   status: %s", response_data['status'])
+        logger.info("   完整响应数据 (JSON):")
+        logger.info("   %s", json.dumps(response_data, indent=2, ensure_ascii=False, default=str))
+        logger.info("=" * 80)
+        
+        return make_succ_response(response_data, "订单更新成功"), 200
+        
+    except Exception as e:
+        logger.error("=" * 80)
+        logger.error("❌ [ERROR] PUT /api/battery/orders/<order_id>")
+        logger.error("   错误信息: %s", str(e))
+        logger.error("=" * 80)
+        logger.error("❌ 更新电池订单失败: %s", str(e), exc_info=True)
+        return make_err_response(f"更新电池订单失败: {str(e)}"), 500
 

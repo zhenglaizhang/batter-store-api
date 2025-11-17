@@ -72,6 +72,10 @@ class BatteryUploadOrder(db.Model):
     status = Column(String(50), default='pending', nullable=False, index=True)
     total_photos = Column(Integer, default=0, nullable=False)
     pickup_date = Column(DateTime, nullable=True)
+    order_type = Column(String(50), default='photo_upload', nullable=False)  # photo_upload, weight_based
+    batteries = Column(JSON, nullable=True)  # 电池列表JSON数据
+    total_price = Column(String(50), nullable=True)  # 总价格（字符串格式，支持小数）
+    total_weight = Column(String(50), nullable=True)  # 总重量（字符串格式，支持小数）
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     

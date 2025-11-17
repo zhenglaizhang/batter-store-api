@@ -137,6 +137,13 @@ def get_battery_order_detail(order_id):
     return upload_handler.get_battery_order_detail(order_id)
 
 
+@app.route('/api/battery/orders/<order_id>', methods=['PUT'])
+@require_admin_auth
+def update_battery_order(order_id):
+    """更新电池订单信息（管理员功能，支持编辑）"""
+    return upload_handler.update_battery_order(order_id)
+
+
 # ========== 管理员相关API ==========
 
 @app.route('/api/admin/login', methods=['POST'])

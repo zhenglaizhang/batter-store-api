@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import and_
 from wxcloudrun import db
@@ -200,6 +201,37 @@ def get_all_battery_upload_orders():
     except OperationalError as e:
         logger.error("get_all_battery_upload_orders errorMsg= {}".format(e))
         return []
+
+
+def update_battery_upload_order(order_id, update_data):
+    """
+    更新电池上传订单
+    :param order_id: 订单ID
+    :param update_data: 要更新的数据字典
+    :return: 更新后的 BatteryUploadOrder 实体或 None
+    """
+    try:
+        order = get_battery_upload_order_by_id(order_id)
+        if order is None:
+            return None
+        
+        # 更新字段
+        for key, value in update_data.items():
+            if hasattr(order, key):
+                setattr(order, key, value)
+        
+        order.updated_at = datetime.utcnow()
+        db.session.commit()
+        db.session.refresh(order)
+        return order
+    except OperationalError as e:
+        logger.error("update_battery_upload_order errorMsg= {}".format(e))
+        db.session.rollback()
+        raise
+    except Exception as e:
+        logger.error("update_battery_upload_order errorMsg= {}".format(e))
+        db.session.rollback()
+        raise
 
 
 def create_battery_upload_photo(photo_data):
