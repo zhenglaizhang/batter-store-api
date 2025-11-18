@@ -6,7 +6,7 @@ from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter
 from wxcloudrun.model import Counters
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
 from wxcloudrun.handlers import user_handler, upload_handler, admin_handler, auth_handler
-from wxcloudrun.middleware import require_admin_auth
+from wxcloudrun.middleware import require_admin_auth, require_user_auth
 
 
 @app.route('/')
@@ -100,8 +100,9 @@ def login_with_sms():
 
 
 @app.route('/api/user/profile', methods=['GET'])
+@require_user_auth
 def get_user_profile():
-    """获取用户个人信息"""
+    """获取用户个人信息（需要认证）"""
     return user_handler.get_user_profile()
 
 

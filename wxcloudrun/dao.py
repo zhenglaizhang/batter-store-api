@@ -64,6 +64,24 @@ def get_user_registration_by_registration_id(registration_id):
         return None
 
 
+def get_user_registration_by_phone(phone):
+    """
+    根据手机号查询用户注册记录（返回最新的）
+    :param phone: 手机号
+    :return: UserRegistration 实体或 None
+    """
+    try:
+        return UserRegistration.query.filter(
+            UserRegistration.contact_phone == phone
+        ).order_by(UserRegistration.created_at.desc()).first()
+    except OperationalError as e:
+        logger.error("get_user_registration_by_phone errorMsg= {}".format(e))
+        return None
+    except Exception as e:
+        logger.error("get_user_registration_by_phone errorMsg= {}".format(e))
+        return None
+
+
 def get_latest_user_registration():
     """
     获取最新的用户注册记录

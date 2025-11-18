@@ -5,7 +5,9 @@ from wxcloudrun import db
 from wxcloudrun.dao import (
     create_user_registration, get_latest_user_registration,
     get_all_user_registrations, update_user_registration_status,
-    get_user_registration_by_user_id, get_latest_sms_code, mark_sms_code_as_used
+    get_user_registration_by_user_id, get_user_registration_by_phone,
+    get_latest_sms_code, mark_sms_code_as_used,
+    get_user_by_phone, create_user
 )
 from wxcloudrun.utils import (
     generate_user_id, generate_registration_id, validate_user_registration_data
@@ -33,8 +35,9 @@ def register_user():
             logger.error("❌ 数据验证失败: %s", error_msg)
             return make_err_response(error_msg), 422
         
-        # 验证短信验证码
-        phone = data['user_info']['contact_phone']
+        # 获取用户信息
+        user_info = data['user_info']
+        phone = user_info['contact_phone']
         sms_code = data.get('sms_code', '').strip()
         
         if not sms_code:
@@ -59,8 +62,21 @@ def register_user():
         
         logger.info("✅ 数据验证通过，开始处理注册")
         
+        # 检查用户是否已存在，如果不存在则创建
+        existing_user = get_user_by_phone(phone)
+        
+        if existing_user:
+            # 用户已存在，使用现有的 user_id
+            user_id = str(existing_user.id)
+            logger.info("📋 用户已存在，使用现有 user_id: %s", user_id)
+        else:
+            # 创建新用户
+            logger.info("📋 创建新用户: phone=%s", phone)
+            new_user = create_user(phone)
+            user_id = str(new_user.id)
+            logger.info("✅ 新用户创建成功: user_id=%s", user_id)
+        
         # 生成唯一ID
-        user_id = generate_user_id()
         registration_id = generate_registration_id()
         logger.info("🆔 生成ID: user_id=%s, registration_id=%s", user_id, registration_id)
         
@@ -73,7 +89,6 @@ def register_user():
                 pass
         
         # 构建注册数据
-        user_info = data['user_info']
         registration_data = {
             'registration_id': registration_id,
             'user_id': user_id,
@@ -115,18 +130,32 @@ def register_user():
 def get_user_profile():
     """
     获取用户个人信息处理器
-    默认返回最新插入的注册用户数据
+    从 token 中获取手机号，返回该用户的注册信息
     """
     try:
         logger.info("🚀 开始处理获取用户个人信息请求")
         
-        user_profile = get_latest_user_registration()
+        # 从 request 中获取用户信息（由认证中间件设置）
+        if not hasattr(request, 'user') or not request.user:
+            logger.error("❌ 未找到用户认证信息")
+            return make_err_response("未授权，请先登录"), 401
+        
+        # 从 token 中获取手机号（更可靠，因为 User 表的 id 和 UserRegistration 表的 user_id 格式不一致）
+        phone = request.user.get('phone')
+        if not phone:
+            logger.error("❌ token 中缺少 phone")
+            return make_err_response("无效的 token"), 401
+        
+        logger.info("📋 从 token 获取 phone: %s", phone)
+        
+        # 根据手机号获取用户注册信息（返回最新的注册记录）
+        user_profile = get_user_registration_by_phone(phone)
         
         if user_profile is None:
-            logger.warn("⚠️ 未找到任何用户注册记录")
+            logger.warn("⚠️ 未找到用户注册记录: phone=%s", phone)
             return make_err_response("未找到用户信息"), 404
         
-        logger.info("✅ 成功获取用户个人信息: user_id=%s", user_profile.user_id)
+        logger.info("✅ 成功获取用户个人信息: phone=%s, user_id=%s", phone, user_profile.user_id)
         
         # 构建响应数据
         response_data = {

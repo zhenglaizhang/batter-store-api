@@ -3,6 +3,7 @@
 """
 import logging
 import random
+import jwt
 from datetime import datetime, timedelta
 from flask import request
 from wxcloudrun import db
@@ -17,6 +18,10 @@ logger = logging.getLogger('log')
 
 # Mock验证码（固定返回123456）
 MOCK_SMS_CODE = '123456'
+
+# JWT配置（用户认证，区别于管理员）
+USER_JWT_SECRET = "user_secret_key_change_in_production"
+USER_JWT_ALGORITHM = "HS256"
 
 
 def send_sms_code():
@@ -157,22 +162,36 @@ def login_with_sms():
         # 标记验证码为已使用
         mark_sms_code_as_used(sms_code_record.id)
         
-        # 查找或创建用户
+        # 查找用户（不自动创建）
         user = get_user_by_phone(phone)
         if not user:
-            user = create_user(phone)
-            logger.info("✅ 创建新用户: phone=%s, user_id=%s", phone, user.id)
-        else:
-            logger.info("✅ 用户登录成功: phone=%s, user_id=%s", phone, user.id)
+            logger.warning("⚠️ 登录失败：手机号不存在: phone=%s", phone)
+            return make_err_response("该手机号尚未注册，请先完成注册"), 404
+        
+        logger.info("✅ 用户登录成功: phone=%s, user_id=%s", phone, user.id)
+        
+        # 生成JWT token
+        payload = {
+            'user_id': str(user.id),
+            'phone': user.phone,
+            'role': 'user',
+            'exp': datetime.utcnow() + timedelta(days=7)  # token有效期7天
+        }
+        
+        token = jwt.encode(payload, USER_JWT_SECRET, algorithm=USER_JWT_ALGORITHM)
+        # 确保 token 是字符串（Python 3 中 jwt.encode 可能返回字节）
+        if isinstance(token, bytes):
+            token = token.decode('utf-8')
         
         # 构建响应数据
         response_data = {
+            "token": token,
             "user_id": str(user.id),
             "phone": user.phone,
             "created_at": user.created_at.isoformat() + 'Z' if user.created_at else None,
         }
         
-        logger.info("🎉 短信验证码登录处理完成")
+        logger.info("🎉 短信验证码登录处理完成，已生成token")
         return make_succ_response(response_data, "登录成功"), 200
         
     except Exception as e:
