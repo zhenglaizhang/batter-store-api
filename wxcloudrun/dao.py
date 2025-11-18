@@ -5,7 +5,7 @@ from sqlalchemy import and_
 from wxcloudrun import db
 from wxcloudrun.models import (
     UserRegistration, BusinessType, UserRole,
-    BatteryUploadOrder, BatteryUploadPhoto
+    BatteryUploadOrder, BatteryUploadPhoto, User, SmsCode
 )
 
 # 初始化日志
@@ -376,5 +376,118 @@ def delete_counterbyid(counter_id):
         return False
     except Exception as e:
         logger.error("delete_counterbyid errorMsg= {}".format(e))
+        db.session.rollback()
+        return False
+
+
+# ========== 用户和短信验证码相关 ==========
+
+def get_user_by_phone(phone):
+    """
+    根据手机号查询用户
+    :param phone: 手机号
+    :return: User 实体或 None
+    """
+    try:
+        return User.query.filter(User.phone == phone).first()
+    except OperationalError as e:
+        logger.error("get_user_by_phone errorMsg= {}".format(e))
+        return None
+    except Exception as e:
+        logger.error("get_user_by_phone errorMsg= {}".format(e))
+        return None
+
+
+def create_user(phone):
+    """
+    创建用户
+    :param phone: 手机号
+    :return: User 实体
+    """
+    try:
+        user = User(phone=phone)
+        db.session.add(user)
+        db.session.commit()
+        db.session.refresh(user)
+        return user
+    except OperationalError as e:
+        logger.error("create_user errorMsg= {}".format(e))
+        db.session.rollback()
+        raise
+    except Exception as e:
+        logger.error("create_user errorMsg= {}".format(e))
+        db.session.rollback()
+        raise
+
+
+def create_sms_code(phone, code, ip_address=None):
+    """
+    创建短信验证码记录
+    :param phone: 手机号
+    :param code: 验证码
+    :param ip_address: IP地址
+    :return: SmsCode 实体
+    """
+    try:
+        sms_code = SmsCode(phone=phone, code=code, ip_address=ip_address)
+        db.session.add(sms_code)
+        db.session.commit()
+        db.session.refresh(sms_code)
+        return sms_code
+    except OperationalError as e:
+        logger.error("create_sms_code errorMsg= {}".format(e))
+        db.session.rollback()
+        raise
+    except Exception as e:
+        logger.error("create_sms_code errorMsg= {}".format(e))
+        db.session.rollback()
+        raise
+
+
+def get_latest_sms_code(phone):
+    """
+    获取指定手机号最新的验证码（未使用且未过期）
+    :param phone: 手机号
+    :return: SmsCode 实体或 None
+    """
+    try:
+        from datetime import datetime, timedelta
+        # 验证码有效期5分钟
+        expire_time = datetime.utcnow() - timedelta(minutes=5)
+        return SmsCode.query.filter(
+            and_(
+                SmsCode.phone == phone,
+                SmsCode.used_at.is_(None),
+                SmsCode.sent_at >= expire_time
+            )
+        ).order_by(SmsCode.sent_at.desc()).first()
+    except OperationalError as e:
+        logger.error("get_latest_sms_code errorMsg= {}".format(e))
+        return None
+    except Exception as e:
+        logger.error("get_latest_sms_code errorMsg= {}".format(e))
+        return None
+
+
+def mark_sms_code_as_used(sms_code_id):
+    """
+    标记验证码为已使用
+    :param sms_code_id: 验证码ID
+    :return: 是否成功
+    """
+    try:
+        from datetime import datetime
+        sms_code = SmsCode.query.filter(SmsCode.id == sms_code_id).first()
+        if sms_code:
+            sms_code.used_at = datetime.utcnow()
+            db.session.commit()
+            return True
+        return False
+    except OperationalError as e:
+        logger.error("mark_sms_code_as_used errorMsg= {}".format(e))
+        db.session.rollback()
+        return False
+    except Exception as e:
+        logger.error("mark_sms_code_as_used errorMsg= {}".format(e))
         db.session.rollback()
         return False

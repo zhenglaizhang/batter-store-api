@@ -5,7 +5,7 @@ from wxcloudrun import app
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid
 from wxcloudrun.model import Counters
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
-from wxcloudrun.handlers import user_handler, upload_handler, admin_handler
+from wxcloudrun.handlers import user_handler, upload_handler, admin_handler, auth_handler
 from wxcloudrun.middleware import require_admin_auth
 
 
@@ -77,6 +77,26 @@ def get_count():
 def register_user():
     """用户注册"""
     return user_handler.register_user()
+
+
+# ========== 短信验证码认证相关API ==========
+
+@app.route('/api/auth/sms/send', methods=['POST'])
+def send_sms_code():
+    """发送短信验证码"""
+    return auth_handler.send_sms_code()
+
+
+@app.route('/api/auth/sms/verify', methods=['POST'])
+def verify_sms_code():
+    """验证短信验证码"""
+    return auth_handler.verify_sms_code()
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def login_with_sms():
+    """使用手机号和验证码登录"""
+    return auth_handler.login_with_sms()
 
 
 @app.route('/api/user/profile', methods=['GET'])

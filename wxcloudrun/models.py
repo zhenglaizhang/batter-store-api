@@ -98,3 +98,25 @@ class BatteryUploadPhoto(db.Model):
     upload_index = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
+# 用户表（用于短信验证码登录）
+class User(db.Model):
+    __tablename__ = 'users'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    phone = Column(String(11), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+# 短信验证码表
+class SmsCode(db.Model):
+    __tablename__ = 'sms_codes'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    phone = Column(String(11), nullable=False, index=True)
+    code = Column(String(6), nullable=False)
+    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    ip_address = Column(String(45), nullable=True)
+

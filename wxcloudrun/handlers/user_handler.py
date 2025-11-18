@@ -5,7 +5,7 @@ from wxcloudrun import db
 from wxcloudrun.dao import (
     create_user_registration, get_latest_user_registration,
     get_all_user_registrations, update_user_registration_status,
-    get_user_registration_by_user_id
+    get_user_registration_by_user_id, get_latest_sms_code, mark_sms_code_as_used
 )
 from wxcloudrun.utils import (
     generate_user_id, generate_registration_id, validate_user_registration_data
@@ -32,6 +32,30 @@ def register_user():
         if not is_valid:
             logger.error("❌ 数据验证失败: %s", error_msg)
             return make_err_response(error_msg), 422
+        
+        # 验证短信验证码
+        phone = data['user_info']['contact_phone']
+        sms_code = data.get('sms_code', '').strip()
+        
+        if not sms_code:
+            logger.error("❌ 缺少短信验证码")
+            return make_err_response("请先获取并输入短信验证码"), 400
+        
+        # 获取最新的未使用验证码
+        sms_code_record = get_latest_sms_code(phone)
+        
+        if not sms_code_record:
+            logger.error("❌ 验证码不存在或已过期: phone=%s", phone)
+            return make_err_response("验证码不存在或已过期，请重新获取"), 400
+        
+        # 验证验证码
+        if sms_code_record.code != sms_code:
+            logger.warning("⚠️ 注册验证码错误: phone=%s, input_code=%s", phone, sms_code)
+            return make_err_response("验证码错误"), 400
+        
+        # 标记验证码为已使用
+        mark_sms_code_as_used(sms_code_record.id)
+        logger.info("✅ 短信验证码验证通过: phone=%s", phone)
         
         logger.info("✅ 数据验证通过，开始处理注册")
         
